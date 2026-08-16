@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Boat Eye Sensitivity Calculator — Range Search</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #171820;
+      --panel: #242630;
+      --panel-2: #2d303c;
+      --border: #3d4150;
+      --text: #f4f5f8;
+      --muted: #aeb4c4;
+      --accent: #78a9ff;
+      --accent-strong: #4d8cff;
+      --good: #72d5a2;
+      --warn: #ffc66d;
+      --bad: #ff8181;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.24);
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at top, #232633 0, var(--bg) 42%, #12131a 100%);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.45;
+    }
+
+    button, input, select { font: inherit; }
+
+    .app {
+      width: min(1380px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 28px 0 44px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      align-items: flex-start;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      margin: 0 0 7px;
+      font-size: clamp(26px, 4vw, 40px);
+      letter-spacing: -0.035em;
+      line-height: 1.05;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      max-width: 850px;
+      font-size: 14px;
+    }
+
+    .dataset-badge {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(36, 38, 48, 0.88);
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); }
+    .dataset-badge.ready .dot { background: var(--good); }
+    .dataset-badge.error .dot { background: var(--bad); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(300px, 0.92fr) minmax(300px, 0.92fr) minmax(360px, 1.16fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(45, 48, 60, 0.96), rgba(35, 37, 47, 0.96));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .panel-title {
+      margin: 0;
+      font-size: 15px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .panel-body { padding: 18px; }
+
+    .field { margin-bottom: 16px; }
+    .field:last-child { margin-bottom: 0; }
+
+    label {
+      display: block;
+      margin-bottom: 7px;
+      color: #d8dbe4;
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    input[type="number"], select {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #171923;
+      color: var(--text);
+      padding: 9px 11px;
+      outline: none;
+      transition: border-color 120ms ease, box-shadow 120ms ease;
+    }
+
+    input[type="number"]:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(120, 169, 255, 0.15);
+    }
+
+    input[type="range"] { width: 100%; accent-color: var(--accent-strong); }
+
+    .slider-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .slider-value {
+      font-variant-numeric: tabular-nums;
+      font-weight: 800;
+      color: var(--accent);
+      font-size: 18px;
+    }
+
+    .range-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .range-group {
+      padding: 12px;
+      border-radius: 11px;
+      background: rgba(20, 22, 30, 0.42);
+      border: 1px solid rgba(61, 65, 80, 0.75);
+      margin-bottom: 12px;
+    }
+
+    .range-group:last-child { margin-bottom: 0; }
+    .range-group > label { margin-bottom: 9px; }
+
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 7px;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .status {
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--muted);
+      background: #191b24;
+      font-size: 13px;
+      margin-bottom: 14px;
+    }
+
+    .status.good { border-color: rgba(114, 213, 162, 0.45); color: #bcead2; }
+    .status.error { border-color: rgba(255, 129, 129, 0.5); color: #ffc0c0; }
+
+    .retry {
+      margin-left: auto;
+      border: 0;
+      border-radius: 8px;
+      padding: 6px 10px;
+      color: white;
+      background: #884242;
+      cursor: pointer;
+    }
+
+    .recommendation {
+      border-radius: 13px;
+      border: 1px solid rgba(120, 169, 255, 0.48);
+      background: linear-gradient(145deg, rgba(53, 91, 148, 0.42), rgba(32, 35, 46, 0.9));
+      padding: 15px;
+      margin-bottom: 14px;
+    }
+
+    .rec-kicker {
+      color: #a9c8ff;
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      font-weight: 800;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .rec-main {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 9px;
+      margin-bottom: 12px;
+    }
+
+    .metric {
+      padding: 10px;
+      border: 1px solid rgba(120, 169, 255, 0.15);
+      border-radius: 10px;
+      background: rgba(13, 15, 22, 0.35);
+      min-width: 0;
+    }
+
+    .metric-name { color: var(--muted); font-size: 11px; margin-bottom: 2px; }
+    .metric-value {
+      font-size: 18px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 7px 14px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .detail-grid strong { color: #eceef4; font-variant-numeric: tabular-nums; }
+
+    .results-shell {
+      grid-column: 1 / -1;
+    }
+
+    .results-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .table-wrap { overflow-x: auto; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1040px;
+      font-size: 13px;
+    }
+
+    th, td {
+      padding: 11px 10px;
+      border-bottom: 1px solid rgba(61, 65, 80, 0.72);
+      text-align: right;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background: #292c37;
+      color: #bfc5d4;
+      font-size: 11px;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      z-index: 1;
+    }
+
+    th:first-child, td:first-child { text-align: left; }
+    tbody tr:hover { background: rgba(120, 169, 255, 0.055); }
+
+    .positive { color: #ffcf85; }
+    .negative { color: #8fd4ff; }
+    .near-zero { color: var(--good); }
+
+    .empty {
+      color: var(--muted);
+      text-align: center;
+      padding: 35px 16px;
+      font-size: 14px;
+    }
+
+    footer {
+      color: #83899a;
+      font-size: 11px;
+      margin-top: 16px;
+      text-align: center;
+    }
+
+    footer a { color: #9cbcf4; }
+
+    @media (max-width: 1050px) {
+      .grid { grid-template-columns: 1fr 1fr; }
+      .results-panel { grid-column: 1 / -1; }
+      header { flex-direction: column; }
+    }
+
+    @media (max-width: 720px) {
+      .app { width: min(100% - 18px, 680px); padding-top: 18px; }
+      .grid { grid-template-columns: 1fr; }
+      .results-panel, .results-shell { grid-column: auto; }
+      .toolbar, .range-grid { grid-template-columns: 1fr 1fr; }
+      .rec-main { grid-template-columns: 1fr; }
+      .detail-grid { grid-template-columns: 1fr; }
+      .panel-body, .panel-head { padding-left: 14px; padding-right: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <h1>Boat Eye Sensitivity Calculator</h1>
+        <p class="subtitle">Search exact boat-eye sensitivities inside your preferred DPI / sensitivity / cursor-speed ranges. The calculator preserves Windows pointer speed as closely as integer DPI allows, then ranks the post-snap Minecraft rotation error instead of hiding it.</p>
+      </div>
+      <div id="datasetBadge" class="dataset-badge"><span class="dot"></span><span id="datasetBadgeText">Loading boat-eye data…</span></div>
+    </header>
+
+    <section class="grid">
+      <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">Current settings</h2></div>
+        <div class="panel-body">
+          <div class="field">
+            <label for="currentDpi">DPI</label>
+            <input id="currentDpi" type="number" min="1" step="1" inputmode="numeric" placeholder="e.g. 1600" />
+          </div>
+          <div class="field">
+            <label for="currentSensitivity">Sensitivity (from options.txt)</label>
+            <input id="currentSensitivity" type="number" min="0" max="1" step="any" inputmode="decimal" placeholder="e.g. 0.5" />
+          </div>
+          <div class="field">
+            <div class="slider-line">
+              <label for="currentCursor" style="margin:0">Windows Cursor Speed</label>
+              <span id="currentCursorValue" class="slider-value">10</span>
+            </div>
+            <input id="currentCursor" type="range" min="1" max="20" value="10" step="1" />
+            <div class="hint">Speed 10 = 1.0×. Speed 20 correctly uses 3.5× in this version.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">Result constraints</h2></div>
+        <div class="panel-body">
+          <div class="range-group">
+            <label>New DPI</label>
+            <div class="range-grid">
+              <input id="dpiMin" type="number" min="1" step="1" placeholder="Min (optional)" />
+              <input id="dpiMax" type="number" min="1" step="1" placeholder="Max (optional)" />
+            </div>
+          </div>
+          <div class="range-group">
+            <label>New Sensitivity</label>
+            <div class="range-grid">
+              <input id="sensMin" type="number" min="0" max="1" step="any" placeholder="Min (optional)" />
+              <input id="sensMax" type="number" min="0" max="1" step="any" placeholder="Max (optional)" />
+            </div>
+          </div>
+          <div class="range-group">
+            <label>New Cursor Speed</label>
+            <div class="range-grid">
+              <input id="cursorMin" type="number" min="1" max="20" step="1" value="1" />
+              <input id="cursorMax" type="number" min="1" max="20" step="1" value="20" />
+            </div>
+            <div class="hint">Blank DPI / sensitivity bounds mean unrestricted.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel results-panel">
+        <div class="panel-head"><h2 class="panel-title">Recommendation</h2></div>
+        <div class="panel-body">
+          <div class="toolbar">
+            <div>
+              <label for="priority">Priority</label>
+              <select id="priority">
+                <option value="balanced" selected>Balanced</option>
+                <option value="boatAccuracy">Boat Accuracy</option>
+                <option value="minimumChange">Minimum Change</option>
+              </select>
+            </div>
+            <div>
+              <label for="showCount">Show alternatives</label>
+              <select id="showCount">
+                <option value="5">Top 5</option>
+                <option value="10" selected>Top 10</option>
+                <option value="20">Top 20</option>
+                <option value="all">All</option>
+              </select>
+            </div>
+          </div>
+          <div id="statusBox" class="status">Load the data and enter your current DPI and sensitivity.</div>
+          <div id="recommendationHost"></div>
+        </div>
+      </section>
+
+      <section class="panel results-shell">
+        <div class="panel-head">
+          <h2 class="panel-title">Other valid results</h2>
+          <div class="results-header-row"><span id="candidateCount">0 candidates</span></div>
+        </div>
+        <div id="resultsHost" class="table-wrap"><div class="empty">No calculation yet.</div></div>
+      </section>
+    </section>
+
+    <footer>
+      Boat-eye sensitivity data: <a href="https://gist.github.com/ExeRSolver/cd8e89256a5f51ee4e32ba9df2db748f" target="_blank" rel="noopener noreferrer">ExeRSolver — boatEyeSensitivitiesv1_16</a>. This page uses the same Minecraft cubic sensitivity formula as the uploaded original calculator.
+    </footer>
+  </main>
+
+  <script>
+(function (root, factory) {
+  const api = factory();
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  if (root) root.CalculatorCore = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  'use strict';
+
+  const CURSOR_SPEED_MULTIPLIERS = Object.freeze([
+    0.03125, 0.0625, 0.125, 0.25, 0.375,
+    0.5, 0.625, 0.75, 0.875, 1,
+    1.25, 1.5, 1.75, 2, 2.25,
+    2.5, 2.75, 3, 3.25, 3.5,
+  ]);
+
+  const PIXEL_SKIP_BASE = 0.00220031449588;
+
+  function sensMultiplier(sensitivity) {
+    return ((Number(sensitivity) * 0.6 + 0.2) ** 3) * 8;
+  }
+
+  function inverseSensMultiplier(multiplier) {
+    return (((Number(multiplier) / 8) ** (1 / 3)) - 0.2) / 0.6;
+  }
+
+  function cursorMultiplier(speed) {
+    const index = Number(speed) - 1;
+    if (!Number.isInteger(index) || index < 0 || index >= CURSOR_SPEED_MULTIPLIERS.length) {
+      throw new RangeError('Cursor speed must be an integer from 1 to 20.');
+    }
+    return CURSOR_SPEED_MULTIPLIERS[index];
+  }
+
+  function parseBoatData(text) {
+    return String(text)
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .filter(Boolean)
+      .map(line => line.split(/\s+/).slice(0, 4).map(Number))
+      .filter(values => values.length === 4 && values.every(Number.isFinite))
+      .map(([sensitivity, minAngleIncrement, maxSafeAngle, fpResistance]) => ({
+        sensitivity,
+        minAngleIncrement,
+        maxSafeAngle,
+        fpResistance,
+      }))
+      .filter(row => row.sensitivity >= 0 && row.sensitivity <= 1 && row.minAngleIncrement > 0 && row.maxSafeAngle > 0);
+  }
+
+  function desktopPreservingDpi(currentDpi, currentCursorSpeed, newCursorSpeed) {
+    return Number(currentDpi) * cursorMultiplier(currentCursorSpeed) / cursorMultiplier(newCursorSpeed);
+  }
+
+  function desktopErrorPct(currentDpi, currentCursorSpeed, newDpi, newCursorSpeed) {
+    const before = Number(currentDpi) * cursorMultiplier(currentCursorSpeed);
+    const after = Number(newDpi) * cursorMultiplier(newCursorSpeed);
+    return (after / before - 1) * 100;
+  }
+
+  function gameErrorPct(currentDpi, currentSensitivity, newDpi, newSensitivity) {
+    const before = Number(currentDpi) * sensMultiplier(currentSensitivity);
+    const after = Number(newDpi) * sensMultiplier(newSensitivity);
+    return (after / before - 1) * 100;
+  }
+
+  function valueInRange(value, min, max) {
+    if (min != null && value < min) return false;
+    if (max != null && value > max) return false;
+    return true;
+  }
+
+  function validateRanges(constraints = {}) {
+    const errors = [];
+    const { dpiMin, dpiMax, sensMin, sensMax, cursorMin, cursorMax } = constraints;
+
+    if (dpiMin != null && (!Number.isFinite(dpiMin) || dpiMin <= 0)) errors.push('DPI minimum must be greater than 0.');
+    if (dpiMax != null && (!Number.isFinite(dpiMax) || dpiMax <= 0)) errors.push('DPI maximum must be greater than 0.');
+    if (dpiMin != null && dpiMax != null && dpiMin > dpiMax) errors.push('DPI minimum cannot be greater than DPI maximum.');
+
+    if (sensMin != null && (!Number.isFinite(sensMin) || sensMin < 0 || sensMin > 1)) errors.push('Sensitivity minimum must be between 0 and 1.');
+    if (sensMax != null && (!Number.isFinite(sensMax) || sensMax < 0 || sensMax > 1)) errors.push('Sensitivity maximum must be between 0 and 1.');
+    if (sensMin != null && sensMax != null && sensMin > sensMax) errors.push('Sensitivity minimum cannot be greater than Sensitivity maximum.');
+
+    if (!Number.isInteger(cursorMin) || cursorMin < 1 || cursorMin > 20) errors.push('Cursor minimum must be an integer from 1 to 20.');
+    if (!Number.isInteger(cursorMax) || cursorMax < 1 || cursorMax > 20) errors.push('Cursor maximum must be an integer from 1 to 20.');
+    if (Number.isInteger(cursorMin) && Number.isInteger(cursorMax) && cursorMin > cursorMax) errors.push('Cursor minimum cannot be greater than Cursor maximum.');
+
+    return errors;
+  }
+
+  function setupChangeMetric(currentDpi, currentCursorSpeed, newDpi, newCursorSpeed) {
+    const dpiDistance = Math.abs(Math.log(Number(newDpi) / Number(currentDpi)));
+    const cursorDistance = Math.abs(Number(newCursorSpeed) - Number(currentCursorSpeed)) / 19;
+    return dpiDistance + cursorDistance;
+  }
+
+  function generateCandidates({ currentDpi, currentSensitivity, currentCursorSpeed, constraints, boatRows }) {
+    const dpi = Number(currentDpi);
+    const sensitivity = Number(currentSensitivity);
+    const cursor = Number(currentCursorSpeed);
+    if (!Number.isFinite(dpi) || dpi <= 0) throw new RangeError('Current DPI must be greater than 0.');
+    if (!Number.isFinite(sensitivity) || sensitivity < 0 || sensitivity > 1) throw new RangeError('Current sensitivity must be between 0 and 1.');
+    cursorMultiplier(cursor);
+
+    const normalizedConstraints = {
+      dpiMin: constraints?.dpiMin ?? null,
+      dpiMax: constraints?.dpiMax ?? null,
+      sensMin: constraints?.sensMin ?? null,
+      sensMax: constraints?.sensMax ?? null,
+      cursorMin: constraints?.cursorMin ?? 1,
+      cursorMax: constraints?.cursorMax ?? 20,
+    };
+    const rangeErrors = validateRanges(normalizedConstraints);
+    if (rangeErrors.length) throw new RangeError(rangeErrors.join(' '));
+
+    const candidates = [];
+    const originalGameScale = dpi * sensMultiplier(sensitivity);
+
+    for (let newCursor = normalizedConstraints.cursorMin; newCursor <= normalizedConstraints.cursorMax; newCursor++) {
+      const idealDpi = desktopPreservingDpi(dpi, cursor, newCursor);
+      const finalDpi = Math.round(idealDpi);
+      if (finalDpi <= 0 || !valueInRange(finalDpi, normalizedConstraints.dpiMin, normalizedConstraints.dpiMax)) continue;
+
+      const theoreticalSensitivity = inverseSensMultiplier(originalGameScale / finalDpi);
+      const desktopErr = desktopErrorPct(dpi, cursor, finalDpi, newCursor);
+
+      for (const row of boatRows || []) {
+        if (!row || !Number.isFinite(row.sensitivity)) continue;
+        if (!valueInRange(row.sensitivity, normalizedConstraints.sensMin, normalizedConstraints.sensMax)) continue;
+
+        const gameErr = gameErrorPct(dpi, sensitivity, finalDpi, row.sensitivity);
+        const dpiChangePct = (finalDpi / dpi - 1) * 100;
+        const candidate = {
+          dpi: finalDpi,
+          idealDpi,
+          sensitivity: row.sensitivity,
+          cursorSpeed: newCursor,
+          targetSensitivity: theoreticalSensitivity,
+          sensitivityDelta: row.sensitivity - theoreticalSensitivity,
+          minAngleIncrement: row.minAngleIncrement,
+          maxSafeAngle: row.maxSafeAngle,
+          fpResistance: row.fpResistance,
+          pixelSkipping: row.minAngleIncrement / PIXEL_SKIP_BASE,
+          desktopErrorPct: desktopErr,
+          absDesktopErrorPct: Math.abs(desktopErr),
+          gameErrorPct: gameErr,
+          absGameErrorPct: Math.abs(gameErr),
+          dpiChangePct,
+          absDpiChangePct: Math.abs(dpiChangePct),
+          cursorChange: newCursor - cursor,
+          setupChange: setupChangeMetric(dpi, cursor, finalDpi, newCursor),
+        };
+        candidates.push(candidate);
+      }
+    }
+    return candidates;
+  }
+
+  function normalizedRanks(items, selector, descending = false) {
+    const values = [...new Set(items.map(selector))].sort((a, b) => descending ? b - a : a - b);
+    const denom = Math.max(1, values.length - 1);
+    const valueRanks = new Map(values.map((value, index) => [value, index / denom]));
+    const map = new Map();
+    for (const item of items) map.set(item, valueRanks.get(selector(item)));
+    return map;
+  }
+
+  function sortCandidates(candidates, mode = 'balanced') {
+    const items = [...(candidates || [])];
+    if (items.length <= 1) return items;
+
+    const gameRank = normalizedRanks(items, c => c.absGameErrorPct);
+    const setupRank = normalizedRanks(items, c => c.setupChange);
+    const angleRank = normalizedRanks(items, c => c.minAngleIncrement);
+    const safeRank = normalizedRanks(items, c => c.maxSafeAngle, true);
+
+    function accuracyRank(c) {
+      return 0.6 * angleRank.get(c) + 0.4 * safeRank.get(c);
+    }
+
+    function score(c) {
+      const game = gameRank.get(c);
+      const setup = setupRank.get(c);
+      const accuracy = accuracyRank(c);
+      if (mode === 'boatAccuracy') return 0.80 * accuracy + 0.15 * game + 0.05 * setup;
+      if (mode === 'minimumChange') return 0.70 * setup + 0.25 * game + 0.05 * accuracy;
+      return 0.55 * game + 0.25 * setup + 0.20 * accuracy;
+    }
+
+    return items.sort((a, b) => {
+      const scoreDelta = score(a) - score(b);
+      if (Math.abs(scoreDelta) > 1e-12) return scoreDelta;
+      if (a.absGameErrorPct !== b.absGameErrorPct) return a.absGameErrorPct - b.absGameErrorPct;
+      if (a.setupChange !== b.setupChange) return a.setupChange - b.setupChange;
+      if (a.minAngleIncrement !== b.minAngleIncrement) return a.minAngleIncrement - b.minAngleIncrement;
+      if (a.maxSafeAngle !== b.maxSafeAngle) return b.maxSafeAngle - a.maxSafeAngle;
+      return (b.fpResistance ?? 0) - (a.fpResistance ?? 0);
+    });
+  }
+
+  return Object.freeze({
+    CURSOR_SPEED_MULTIPLIERS,
+    PIXEL_SKIP_BASE,
+    sensMultiplier,
+    inverseSensMultiplier,
+    cursorMultiplier,
+    parseBoatData,
+    desktopPreservingDpi,
+    desktopErrorPct,
+    gameErrorPct,
+    validateRanges,
+    setupChangeMetric,
+    generateCandidates,
+    sortCandidates,
+  });
+});
+
+  </script>
+  <script>
+    (() => {
+      'use strict';
+
+      const DATA_URL = 'https://gist.githubusercontent.com/ExeRSolver/cd8e89256a5f51ee4e32ba9df2db748f/raw/84b704b7d8f0e5e17d364368d351ad3fa39bb3f3/boatEyeSensitivitiesv1_16.txt';
+      const els = Object.fromEntries([
+        'currentDpi', 'currentSensitivity', 'currentCursor', 'currentCursorValue',
+        'dpiMin', 'dpiMax', 'sensMin', 'sensMax', 'cursorMin', 'cursorMax',
+        'priority', 'showCount', 'statusBox', 'recommendationHost', 'resultsHost',
+        'candidateCount', 'datasetBadge', 'datasetBadgeText'
+      ].map(id => [id, document.getElementById(id)]));
+
+      let boatRows = [];
+      let dataPromise = null;
+      let updateTimer = null;
+
+      function parseOptionalNumber(input) {
+        const text = input.value.trim();
+        if (text === '') return null;
+        const value = Number(text);
+        return Number.isFinite(value) ? value : NaN;
+      }
+
+      function setDatasetState(state, text) {
+        els.datasetBadge.className = `dataset-badge ${state === 'ready' ? 'ready' : state === 'error' ? 'error' : ''}`;
+        els.datasetBadgeText.textContent = text;
+      }
+
+      function setStatus(message, type = '') {
+        els.statusBox.className = `status ${type}`.trim();
+        els.statusBox.textContent = message;
+      }
+
+      function setStatusWithRetry(message) {
+        els.statusBox.className = 'status error';
+        els.statusBox.replaceChildren();
+        const span = document.createElement('span');
+        span.textContent = message;
+        const button = document.createElement('button');
+        button.className = 'retry';
+        button.type = 'button';
+        button.textContent = 'Retry';
+        button.addEventListener('click', () => loadBoatData(true));
+        els.statusBox.append(span, button);
+      }
+
+      async function loadBoatData(force = false) {
+        if (dataPromise && !force) return dataPromise;
+        setDatasetState('loading', 'Loading boat-eye data…');
+        if (force) dataPromise = null;
+
+        dataPromise = (async () => {
+          try {
+            const response = await fetch(DATA_URL, { cache: 'force-cache' });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const text = await response.text();
+            const rows = CalculatorCore.parseBoatData(text);
+            if (!rows.length) throw new Error('No valid rows were parsed.');
+            boatRows = rows;
+            setDatasetState('ready', `${rows.length} boat sensitivities loaded`);
+            scheduleUpdate(0);
+            return rows;
+          } catch (error) {
+            boatRows = [];
+            dataPromise = null;
+            console.error('Boat sensitivity data load failed:', error);
+            setDatasetState('error', 'Boat-eye data unavailable');
+            setStatusWithRetry('Could not load the boat-eye sensitivity list. Check your internet connection, then retry.');
+            renderEmpty('Dataset unavailable.');
+            throw error;
+          }
+        })();
+        return dataPromise;
+      }
+
+      function readState() {
+        const currentDpi = Number(els.currentDpi.value);
+        const currentSensitivity = Number(els.currentSensitivity.value);
+        const currentCursorSpeed = Number(els.currentCursor.value);
+        const constraints = {
+          dpiMin: parseOptionalNumber(els.dpiMin),
+          dpiMax: parseOptionalNumber(els.dpiMax),
+          sensMin: parseOptionalNumber(els.sensMin),
+          sensMax: parseOptionalNumber(els.sensMax),
+          cursorMin: Number(els.cursorMin.value),
+          cursorMax: Number(els.cursorMax.value),
+        };
+        return { currentDpi, currentSensitivity, currentCursorSpeed, constraints };
+      }
+
+      function inputErrors(state) {
+        const errors = [];
+        if (!Number.isFinite(state.currentDpi) || state.currentDpi <= 0) errors.push('Enter a current DPI greater than 0.');
+        if (!Number.isFinite(state.currentSensitivity) || state.currentSensitivity < 0 || state.currentSensitivity > 1) errors.push('Enter an options.txt sensitivity from 0 to 1.');
+        for (const value of [state.constraints.dpiMin, state.constraints.dpiMax, state.constraints.sensMin, state.constraints.sensMax]) {
+          if (Number.isNaN(value)) errors.push('A Min/Max field contains an invalid number.');
+        }
+        if (!errors.length) errors.push(...CalculatorCore.validateRanges(state.constraints));
+        return [...new Set(errors)];
+      }
+
+      function formatSensitivity(value) {
+        return Number(value).toFixed(10).replace(/0+$/, '').replace(/\.$/, '');
+      }
+
+      function formatSigned(value, digits = 4) {
+        const n = Number(value);
+        const sign = n > 0 ? '+' : '';
+        return `${sign}${n.toFixed(digits)}%`;
+      }
+
+      function errorClass(value) {
+        const abs = Math.abs(value);
+        if (abs < 0.01) return 'near-zero';
+        return value > 0 ? 'positive' : 'negative';
+      }
+
+      function formatInteger(value) {
+        return Math.round(Number(value)).toLocaleString('en-US');
+      }
+
+      function buildRecommendation(c) {
+        const host = document.createElement('div');
+        host.className = 'recommendation';
+        host.innerHTML = `
+          <div class="rec-kicker">★ Recommended</div>
+          <div class="rec-main">
+            <div class="metric"><div class="metric-name">New DPI</div><div class="metric-value">${formatInteger(c.dpi)}</div></div>
+            <div class="metric"><div class="metric-name">Sensitivity</div><div class="metric-value" title="${c.sensitivity}">${formatSensitivity(c.sensitivity)}</div></div>
+            <div class="metric"><div class="metric-name">Cursor Speed</div><div class="metric-value">${c.cursorSpeed}</div></div>
+          </div>
+          <div class="detail-grid">
+            <div>In-game speed error: <strong class="${errorClass(c.gameErrorPct)}">${formatSigned(c.gameErrorPct)}</strong></div>
+            <div>Desktop pointer error: <strong class="${errorClass(c.desktopErrorPct)}">${formatSigned(c.desktopErrorPct)}</strong></div>
+            <div>Target sensitivity before boat snap: <strong>${formatSensitivity(c.targetSensitivity)}</strong></div>
+            <div>DPI change: <strong>${formatSigned(c.dpiChangePct, 2)}</strong></div>
+            <div>Estimated pixel skipping: <strong>${c.pixelSkipping.toFixed(2)}</strong></div>
+            <div>Minimum angle increment: <strong>${c.minAngleIncrement.toPrecision(9)}</strong></div>
+            <div>Maximum safe angle: <strong>${formatInteger(c.maxSafeAngle)}</strong></div>
+            <div>FP error resistance: <strong>${c.fpResistance}</strong></div>
+          </div>`;
+        return host;
+      }
+
+      function renderTable(sorted) {
+        const show = els.showCount.value;
+        const alternatives = sorted.slice(1);
+        const visible = show === 'all' ? alternatives : alternatives.slice(0, Number(show));
+        if (!visible.length) {
+          els.resultsHost.innerHTML = '<div class="empty">No alternative candidates inside the selected ranges.</div>';
+          return;
+        }
+
+        const rows = visible.map((c, index) => `
+          <tr>
+            <td>#${index + 2}</td>
+            <td>${formatInteger(c.dpi)}</td>
+            <td>${formatSensitivity(c.sensitivity)}</td>
+            <td>${c.cursorSpeed}</td>
+            <td class="${errorClass(c.gameErrorPct)}">${formatSigned(c.gameErrorPct)}</td>
+            <td class="${errorClass(c.desktopErrorPct)}">${formatSigned(c.desktopErrorPct)}</td>
+            <td>${formatSigned(c.dpiChangePct, 2)}</td>
+            <td>${c.pixelSkipping.toFixed(2)}</td>
+            <td>${c.minAngleIncrement.toPrecision(9)}</td>
+            <td>${formatInteger(c.maxSafeAngle)}</td>
+            <td>${c.fpResistance}</td>
+          </tr>`).join('');
+
+        els.resultsHost.innerHTML = `
+          <table>
+            <thead><tr>
+              <th>Rank</th><th>DPI</th><th>Sensitivity</th><th>Cursor</th>
+              <th>Game error</th><th>Desktop error</th><th>DPI change</th>
+              <th>Pixel skip</th><th>Min angle inc.</th><th>Max safe angle</th><th>FP resist.</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>`;
+      }
+
+      function renderEmpty(message) {
+        els.recommendationHost.replaceChildren();
+        els.resultsHost.innerHTML = `<div class="empty">${message}</div>`;
+        els.candidateCount.textContent = '0 candidates';
+      }
+
+      function calculateAndRender() {
+        els.currentCursorValue.textContent = els.currentCursor.value;
+        if (!boatRows.length) {
+          if (!dataPromise) loadBoatData().catch(() => {});
+          return;
+        }
+
+        const state = readState();
+        const errors = inputErrors(state);
+        if (errors.length) {
+          setStatus(errors[0], 'error');
+          renderEmpty('Adjust the inputs above to calculate candidates.');
+          return;
+        }
+
+        try {
+          const candidates = CalculatorCore.generateCandidates({ ...state, boatRows });
+          if (!candidates.length) {
+            setStatus('No valid combination found within the selected constraints.', 'error');
+            renderEmpty('No valid combination found within the selected constraints.');
+            return;
+          }
+          const sorted = CalculatorCore.sortCandidates(candidates, els.priority.value);
+          const best = sorted[0];
+          setStatus(`Found ${sorted.length.toLocaleString('en-US')} valid combinations. Ranked by ${els.priority.options[els.priority.selectedIndex].text}.`, 'good');
+          els.recommendationHost.replaceChildren(buildRecommendation(best));
+          els.candidateCount.textContent = `${sorted.length.toLocaleString('en-US')} candidates`;
+          renderTable(sorted);
+        } catch (error) {
+          console.error(error);
+          setStatus(error.message || 'Calculation failed.', 'error');
+          renderEmpty('Calculation failed.');
+        }
+      }
+
+      function scheduleUpdate(delay = 120) {
+        clearTimeout(updateTimer);
+        updateTimer = setTimeout(calculateAndRender, delay);
+      }
+
+      const recalcIds = ['currentDpi', 'currentSensitivity', 'currentCursor', 'dpiMin', 'dpiMax', 'sensMin', 'sensMax', 'cursorMin', 'cursorMax', 'priority', 'showCount'];
+      for (const id of recalcIds) {
+        els[id].addEventListener(id === 'priority' || id === 'showCount' ? 'change' : 'input', () => scheduleUpdate());
+      }
+      els.currentCursor.addEventListener('input', () => { els.currentCursorValue.textContent = els.currentCursor.value; });
+
+      loadBoatData().catch(() => {});
+    })();
+  </script>
+</body>
+</html>
